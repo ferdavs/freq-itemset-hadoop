@@ -31,10 +31,6 @@ import java.util.*;
 public class Apriori extends Observable {
 
 
-    public static void main(String[] args) throws Exception {
-        Apriori ap = new Apriori(args);
-    }
-
     /**
      * the list of current itemsets
      */
@@ -55,7 +51,6 @@ public class Apriori extends Observable {
      * minimum support for a frequent itemset in percentage, e.g. 0.8
      */
     private double minSup;
-
     /**
      * by default, Apriori is used with the command line interface
      */
@@ -79,6 +74,10 @@ public class Apriori extends Observable {
     public Apriori(String[] args) throws Exception {
         configure(args);
         go();
+    }
+
+    public static void main(String[] args) throws Exception {
+        Apriori ap = new Apriori(args);
     }
 
     /**
