@@ -1,9 +1,11 @@
 package bigdata.team3;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileReader;
-import java.io.InputStreamReader;
+import gnu.trove.map.TObjectDoubleMap;
+import gnu.trove.map.hash.TObjectDoubleHashMap;
+import org.eclipse.jdt.core.compiler.ITerminalSymbols;
+import org.omg.CORBA.OBJ_ADAPTER;
+
+import java.io.*;
 import java.util.*;
 
 /**
@@ -30,19 +32,12 @@ import java.util.*;
  */
 public class Apriori extends Observable {
 
-
     /**
      * the list of current itemsets
      */
-    private List<int[]> itemsets;
-    /**
-     * the name of the transcation file
-     */
-    private String transaFile;
-    /**
-     * number of different items in the dataset
-     */
-    private int numItems;
+    private TObjectDoubleHashMap<Itemset> itemsets;
+    private TObjectDoubleHashMap<Itemset> resultset;
+
     /**
      * total number of transactions in transaFile
      */
@@ -51,39 +46,41 @@ public class Apriori extends Observable {
      * minimum support for a frequent itemset in percentage, e.g. 0.8
      */
     private double minSup;
-    /**
-     * by default, Apriori is used with the command line interface
-     */
-    private boolean usedAsLibrary = false;
 
-    /**
-     * This is the main interface to use this class as a library
-     */
-    public Apriori(String[] args, Observer ob) throws Exception {
-        usedAsLibrary = true;
-        configure(args);
-        this.addObserver(ob);
-        go();
+    private StringBuilder stringBuilder;
+    private int currentItemCount;
+
+    public Apriori(double minSup) throws IOException {
+        this.minSup = minSup;
+        stringBuilder = new StringBuilder();
+        itemsets = new TObjectDoubleHashMap<>();
+        resultset = new TObjectDoubleHashMap<>();
     }
 
-    /**
-     * generates the apriori itemsets from a file
-     *
-     * @param args configuration parameters: args[0] is a filename, args[1] the min support (e.g. 0.8 for 80%)
-     */
-    public Apriori(String[] args) throws Exception {
-        configure(args);
-        go();
+    public Apriori() {
+        stringBuilder = new StringBuilder();
+        itemsets = new TObjectDoubleHashMap<>();
+        resultset = new TObjectDoubleHashMap<>();
     }
 
-    public static void main(String[] args) throws Exception {
-        Apriori ap = new Apriori(args);
+    public void addLine(String line) {
+        stringBuilder.append(line).append("\n");
+        numTransactions++;
+    }
+
+    public TObjectDoubleHashMap<Itemset> getResultset() {
+        return resultset;
+    }
+
+    public int getNumTransactions() {
+        return numTransactions;
     }
 
     /**
      * starts the algorithm after configuration
      */
-    private void go() throws Exception {
+    public TObjectDoubleHashMap<Itemset> go() throws IOException {
+        configure();
         //start timer
         long start = System.currentTimeMillis();
 
@@ -99,7 +96,7 @@ public class Apriori extends Observable {
             if (itemsets.size() != 0) {
                 nbFrequentSets += itemsets.size();
                 log("Found " + itemsets.size() + " frequent itemsets of size " + itemsetNumber + " (with support " + (minSup * 100) + "%)");
-                ;
+
                 createNewItemsetsFromPreviousOnes();
             }
 
@@ -111,101 +108,76 @@ public class Apriori extends Observable {
         log("Execution time is: " + ((double) (end - start) / 1000) + " seconds.");
         log("Found " + nbFrequentSets + " frequents sets for support " + (minSup * 100) + "% (absolute " + Math.round(numTransactions * minSup) + ")");
         log("Done");
-    }
 
-    /**
-     * triggers actions if a frequent item set has been found
-     */
-    private void foundFrequentItemSet(int[] itemset, int support) {
-        if (usedAsLibrary) {
-            this.setChanged();
-            notifyObservers(itemset);
-        } else {
-            System.out.println(Arrays.toString(itemset) + "  (" + ((support / (double) numTransactions)) + " " + support + ")");
-        }
+        return resultset;
     }
 
     /**
      * outputs a message in Sys.err if not used as library
      */
     private void log(String message) {
-        if (!usedAsLibrary) {
-            System.err.println(message);
-        }
+        System.err.println(message);
     }
 
-    /**
-     * computes numItems, numTransactions, and sets minSup
-     */
-    private void configure(String[] args) throws Exception {
-        // setting transafile
-        if (args.length != 0) transaFile = args[0];
-        else transaFile = "chess.dat"; // default
+    private void configure() throws IOException {
 
-        // setting minsupport
-        if (args.length >= 2) minSup = (Double.valueOf(args[1]));
-        else minSup = .8;// by default
-        if (minSup > 1 || minSup < 0) throw new Exception("minSup: bad value");
-
+        if (minSup > 1 || minSup < 0) throw new IOException("minSup: bad value");
 
         // going thourgh the file to compute numItems and  numTransactions
-        numItems = 0;
+//        numItems = 0;
         numTransactions = 0;
-        BufferedReader data_in = new BufferedReader(new FileReader(transaFile));
-        while (data_in.ready()) {
-            String line = data_in.readLine();
+        StringReader reader = new StringReader(stringBuilder.toString());
+        BufferedReader data_in = new BufferedReader(reader);
+        String line;
+        while ((line = data_in.readLine()) != null) {
             if (line.matches("\\s*")) continue; // be friendly with empty lines
             numTransactions++;
-            StringTokenizer t = new StringTokenizer(line, " ");
-            while (t.hasMoreTokens()) {
-                int x = Integer.parseInt(t.nextToken());
-                //log(x);
-                if (x + 1 > numItems) numItems = x + 1;
-            }
         }
-
-        outputConfig();
-
-    }
-
-    /**
-     * outputs the current configuration
-     */
-    private void outputConfig() {
-        //output config info to the user
-        log("Input configuration: " + numItems + " items, " + numTransactions + " transactions, ");
-        log("minsup = " + minSup + "%");
+        data_in.close();
     }
 
     /**
      * puts in itemsets all sets of size 1,
      * i.e. all possibles items of the datasets
      */
-    private void createItemsetsOfSize1() {
-        itemsets = new ArrayList<int[]>();
-        for (int i = 0; i < numItems; i++) {
-            int[] cand = {i};
-            itemsets.add(cand);
+    private void createItemsetsOfSize1() throws IOException {
+        currentItemCount = 1;
+        StringReader reader = new StringReader(stringBuilder.toString());
+        BufferedReader data_in = new BufferedReader(reader);
+        String line;
+        while ((line = data_in.readLine()) != null) {
+            if (line.matches("\\s*")) continue;
+            String[] split = line.split(" ");
+            for (String s : split) {
+                Itemset itemset = new Itemset(s);
+                if (itemsets.containsKey(itemset)) {
+                    itemsets.increment(itemset);
+                } else
+                    itemsets.put(itemset, 1.0);
+            }
+
         }
+        data_in.close();
     }
 
     /**
-     * if m is the size of the current itemsets,
+     * if n is the size of the current itemsets,
      * generate all possible itemsets of size n+1 from pairs of current itemsets
      * replaces the itemsets of itemsets by the new ones
      */
     private void createNewItemsetsFromPreviousOnes() {
-        // by construction, all existing itemsets have the same size
-        int currentSizeOfItemsets = itemsets.get(0).length;
+
+        int currentSizeOfItemsets = currentItemCount;
         log("Creating itemsets of size " + (currentSizeOfItemsets + 1) + " based on " + itemsets.size() + " itemsets of size " + currentSizeOfItemsets);
 
-        HashMap<String, int[]> tempCandidates = new HashMap<String, int[]>(); //temporary candidates
+        Itemset[] items = itemsets.keys(new Itemset[0]);
 
         // compare each pair of itemsets of size n-1
-        for (int i = 0; i < itemsets.size(); i++) {
-            for (int j = i + 1; j < itemsets.size(); j++) {
-                int[] X = itemsets.get(i);
-                int[] Y = itemsets.get(j);
+        for (int i = 0; i < items.length; i++) {
+            int[] X = items[i].getItems();
+
+            for (int j = i + 1; j < items.length; j++) {
+                int[] Y = items[j].getItems();
 
                 assert (X.length == Y.length);
 
@@ -237,99 +209,68 @@ public class Apriori extends Observable {
 
 
                 if (ndifferent == 1) {
-                    // HashMap does not have the correct "equals" for int[] :-(
-                    // I have to create the hash myself using a String :-(
-                    // I use Arrays.toString to reuse equals and hashcode of String
-                    Arrays.sort(newCand);
-                    tempCandidates.put(Arrays.toString(newCand), newCand);
+                    itemsets.put(new Itemset(newCand), 0);
                 }
             }
         }
 
-        //set the new itemsets
-        itemsets = new ArrayList<int[]>(tempCandidates.values());
-        log("Created " + itemsets.size() + " unique itemsets of size " + (currentSizeOfItemsets + 1));
-
-    }
-
-
-    /**
-     * put "true" in trans[i] if the integer i is in line
-     */
-    private void line2booleanArray(String line, boolean[] trans) {
-        Arrays.fill(trans, false);
-        StringTokenizer stFile = new StringTokenizer(line, " "); //read a line from the file to the tokenizer
-        //put the contents of that line into the transaction array
-        while (stFile.hasMoreTokens()) {
-
-            int parsedVal = Integer.parseInt(stFile.nextToken());
-            trans[parsedVal] = true; //if it is not a 0, assign the value to true
+        for (Object item : items) {
+            if (((Itemset) item).getItems().length == currentItemCount) {
+                itemsets.remove(item);
+            }
         }
+        currentItemCount++;
+
+        log("Created " + itemsets.size() + " unique itemsets of size " + (currentSizeOfItemsets + 1));
+    }
+
+    public void setMinSup(double minSup) {
+        this.minSup = minSup;
     }
 
 
     /**
-     * passes through the data to measure the frequency of sets in {@link itemsets},
+     * passes through the data to measure the frequency of sets in {@link },
      * then filters thoses who are under the minimum support (minSup)
      */
-    private void calculateFrequentItemsets() throws Exception {
-
-        log("Passing through the data to compute the frequency of " + itemsets.size() + " itemsets of size " + itemsets.get(0).length);
-
-        List<int[]> frequentCandidates = new ArrayList<int[]>(); //the frequent candidates for the current itemset
-
-        boolean match; //whether the transaction has all the items in an itemset
-        int count[] = new int[itemsets.size()]; //the number of successful matches, initialized by zeros
+    private void calculateFrequentItemsets() throws IOException {
 
 
+        StringReader reader = new StringReader(stringBuilder.toString());
         // load the transaction file
-        BufferedReader data_in = new BufferedReader(new InputStreamReader(new FileInputStream(transaFile)));
+        BufferedReader data_in = new BufferedReader(reader);
 
-        boolean[] trans = new boolean[numItems];
+        Itemset[] items = itemsets.keys(new Itemset[0]);
 
         // for each transaction
-        for (int i = 0; i < numTransactions; i++) {
+        if (currentItemCount > 1)
+            for (int i = 0; i < numTransactions; i++) {
 
-            // boolean[] trans = extractEncoding1(data_in.readLine());
-            String line = data_in.readLine();
-            line2booleanArray(line, trans);
+                String line = data_in.readLine();
+                Itemset trans = new Itemset(line);
 
-            // check each candidate
-            for (int c = 0; c < itemsets.size(); c++) {
-                match = true; // reset match to false
-                // tokenize the candidate so that we know what items need to be
-                // present for a match
-                int[] cand = itemsets.get(c);
-                //int[] cand = candidatesOptimized[c];
-                // check each item in the itemset to see if it is present in the
-                // transaction
-                for (int xx : cand) {
-                    if (!trans[xx]) {
-                        match = false;
-                        break;
+
+                // check each candidate
+                for (int c = 0; c < items.length; c++) {
+                    Itemset item = items[c];
+                    if (trans.contains(item)) {
+                        itemsets.increment(items[c]);
                     }
                 }
-                if (match) { // if at this point it is a match, increase the count
-                    count[c]++;
-                    //log(Arrays.toString(cand)+" is contained in trans "+i+" ("+line+")");
-                }
-            }
 
-        }
+            }
 
         data_in.close();
 
-        for (int i = 0; i < itemsets.size(); i++) {
-            // if the count% is larger than the minSup%, add to the candidate to
-            // the frequent candidates
-            if ((count[i] / (double) (numTransactions)) >= minSup) {
-                foundFrequentItemSet(itemsets.get(i), count[i]);
-                frequentCandidates.add(itemsets.get(i));
-            }
-            //else log("-- Remove candidate: "+ Arrays.toString(candidates.get(i)) + "  is: "+ ((count[i] / (double) numTransactions)));
+        for (int i = 0; i < items.length; i++) {
+            double sup = (itemsets.get(items[i]) / (double) (numTransactions));
+            if (sup < minSup) {
+                itemsets.remove(items[i]);
+            } else
+                itemsets.put(items[i], sup);
         }
 
-        //new candidates are only the frequent candidates
-        itemsets = frequentCandidates;
+        resultset.putAll(itemsets);
     }
+
 }

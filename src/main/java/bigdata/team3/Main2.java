@@ -2,17 +2,12 @@ package bigdata.team3;
 
 import gnu.trove.map.hash.TObjectIntHashMap;
 import gnu.trove.procedure.TObjectIntProcedure;
-import org.apache.commons.collections.FastArrayList;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.commons.math.stat.clustering.Cluster;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DoubleWritable;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -20,16 +15,13 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.util.ToolRunner;
+
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.PrivilegedExceptionAction;
 import java.util.*;
 
 
@@ -47,7 +39,7 @@ public class Main2 {
             conf.setInt("phaseCounter", i);
 
             final String NAME_NODE = "hdfs://SrvT2C2Master:8020";
-            DistributedCache.addCacheFile(new URI(NAME_NODE + "/user/team3/orinput/retail.dat"), conf);
+            DistributedCache.addCacheFile(new URI(NAME_NODE + "/user/team3/orinput2/kosarak.dat"), conf);
 
             Job job = Job.getInstance(conf, "frequent itemset k-phase :" + i);
             job.setJarByClass(Main2.class);
@@ -56,7 +48,7 @@ public class Main2 {
             job.setReducerClass(Main.Reduce.class);
             job.setOutputKeyClass(Text.class);
             job.setOutputValueClass(DoubleWritable.class);
-            job.setNumReduceTasks(1);
+            job.setNumReduceTasks(3);
 
 
             FileInputFormat.addInputPath(job, new Path(input));
@@ -87,7 +79,6 @@ public class Main2 {
 //
 //        }
     }
-
 
     private static void local() throws IOException {
         long start = System.currentTimeMillis();
@@ -267,12 +258,10 @@ public class Main2 {
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             super.setup(context);
-//            int iter = context.getConfiguration().getInt("phaseCounter", 1);
             int iter = Integer.parseInt(context.getJobName().split(":")[1]);
             if (iter > 1) {
                 URI[] cacheFiles = DistributedCache.getCacheFiles(context.getConfiguration());
                 for (URI cacheFile : cacheFiles) {
-//                    if (cacheFile.getPath().endsWith("retail.dat"))
                     {
                         Path p = new Path(cacheFile);
                         FileSystem fs = FileSystem.get(context.getConfiguration());
@@ -282,7 +271,6 @@ public class Main2 {
                         while ((line = d.readLine()) != null) {
                             trans.add(new HashSet<>(Arrays.asList(line.split("\\s+"))));
                         }
-                        System.out.println("####################" + trans.size());
                         d.close();
                     }
                 }
@@ -290,7 +278,6 @@ public class Main2 {
         }
 
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-//            int iter = context.getConfiguration().getInt("phaseCounter", 1);
             int iter = Integer.parseInt(context.getJobName().split(":")[1]);
             if (iter > 1) {
                 String line = value.toString();
@@ -310,14 +297,15 @@ public class Main2 {
         protected void cleanup(Context context) throws IOException, InterruptedException {
 //            int k = context.getConfiguration().getInt("phaseCounter", 1);
             int iter = Integer.parseInt(context.getJobName().split(":")[1]);
-
-            List<String> candidateSet = generateCandidates(itemset, iter);
-            for (String s : candidateSet) {
-                List<String> split = Arrays.asList(s.split("[|]"));
-                for (HashSet<String> tran : trans) {
-                    if (tran.containsAll(split)) {
-                        item.set(s);
-                        context.write(item, one);
+            if (iter > 1) {
+                List<String> candidateSet = generateCandidates(itemset, iter);
+                for (String s : candidateSet) {
+                    List<String> split = Arrays.asList(s.split("[|]"));
+                    for (HashSet<String> tran : trans) {
+                        if (tran.containsAll(split)) {
+                            item.set(s);
+                            context.write(item, one);
+                        }
                     }
                 }
             }
@@ -328,7 +316,7 @@ public class Main2 {
     public static class Reduce extends Reducer<Text, DoubleWritable, Text, DoubleWritable> {
 
         public void reduce(Text key, Iterable<DoubleWritable> values, Context context) throws IOException, InterruptedException {
-            final double numtran = 1.0 / 88162.0;
+            final double numtran = 1.0 / 990002.0;
             final double minsup = 0.01;
             double sum = 0;
             for (DoubleWritable val : values) {

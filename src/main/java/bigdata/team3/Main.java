@@ -7,7 +7,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DoubleWritable;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -47,7 +46,7 @@ public class Main {
         FileSystem.get(conf).delete(outpath, true);
         FileOutputFormat.setOutputPath(job, outpath);
 
-        job.setNumReduceTasks(1);
+        job.setNumReduceTasks(3);
         System.exit(job.waitForCompletion(true) ? 0 : 1);
 
 //        local();
