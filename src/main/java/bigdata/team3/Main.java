@@ -2,7 +2,6 @@ package bigdata.team3;
 
 import gnu.trove.map.hash.TObjectIntHashMap;
 import gnu.trove.procedure.TObjectIntProcedure;
-import org.apache.commons.collections.FastArrayList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -27,9 +26,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Main {
 
     static int setsize = 5;
-    static StringBuilder str = new StringBuilder();
+    static double tranSize = 1;
 
     public static void main(String[] args) throws Exception {
+        tranSize = Double.parseDouble(args[2]);
 
         Configuration conf = new Configuration();
 
@@ -50,8 +50,6 @@ public class Main {
         System.exit(job.waitForCompletion(true) ? 0 : 1);
 
 //        local();
-//        Apriori ap = new Apriori(new String[]{"C:\\Users\\F\\Desktop\\retail.dat", "0.01"});
-
     }
 
     private static void local() throws IOException {
@@ -119,10 +117,7 @@ public class Main {
     private static void gentree(int i, String lset, int k, List<String> set, List<String> list) {
         if (k > 1) {
             for (int j = 0; j < i; j++) {
-                str.append(list.get(j)).append('|').append(lset);
-                String lse = str.toString(); //list.get(j) + "|" + lset;
-                str.setLength(0);
-
+                String lse = list.get(j) + "|" + lset;
                 set.add(lse);
                 if (j > 0)
                     gentree(j, lse, k - 1, set, list);
@@ -132,6 +127,7 @@ public class Main {
 
     public static class Map extends Mapper<LongWritable, Text, Text, DoubleWritable> {
         private final static DoubleWritable one = new DoubleWritable(1);
+        private final static Text itemset = new Text();
 
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
@@ -145,7 +141,8 @@ public class Main {
             List<String> subsets = nsubsetgen(set, setsize);
 //            List<String> subsets = subsetgen(set);
             for (String subset : subsets) {
-                context.write(new Text(subset), one);
+                itemset.set(subset);
+                context.write(itemset, one);
             }
         }
 
@@ -153,7 +150,7 @@ public class Main {
 
             List<String> indexset = new ArrayList<>();
             for (int i = 0; i < list.size(); i++) {
-                FastArrayList set = new FastArrayList();
+                ArrayList<String> set = new ArrayList<>();
                 set.add(list.get(i));
                 gentree(i, list.get(i), n, set, list);
                 indexset.addAll(set);
@@ -162,7 +159,7 @@ public class Main {
             return indexset;
         }
 
-        private void gentree(int i, String lset, int k, FastArrayList set, List<String> list) {
+        private void gentree(int i, String lset, int k, List<String> set, List<String> list) {
             if (k > 1) {
                 for (int j = 0; j < i; j++) {
                     String lse = list.get(j) + "|" + lset;
@@ -179,7 +176,7 @@ public class Main {
 
         public void reduce(Text key, Iterable<DoubleWritable> values, Context context) throws IOException, InterruptedException {
 
-            final double numtran = 1.0 / 88162.0;
+            final double numtran = 1.0 / tranSize;
             final double minsup = 0.01;
             double sum = 0;
             for (DoubleWritable val : values) {

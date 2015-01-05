@@ -2,7 +2,6 @@ package bigdata.team3;
 
 import gnu.trove.map.hash.TObjectDoubleHashMap;
 import gnu.trove.procedure.TObjectDoubleProcedure;
-import gnu.trove.procedure.TObjectIntProcedure;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -32,18 +31,23 @@ import java.util.concurrent.TimeUnit;
 
 public class Main3 {
 
-    static double tranSize = 88162.0;
+    static double tranSize = 1692082;
 
     public static void main(String[] args) throws Exception {
 
-        Configuration conf = new Configuration();
+
         final String NAME_NODE = "hdfs://SrvT2C2Master:8020";
         String input = args[0];
         String rootout = args[1];
-
-        FileSystem fs = FileSystem.get(conf);
+        tranSize = Double.parseDouble(args[2]);
+        Configuration conf = new Configuration();
 
         for (int i = 1; i < 3; i++) {
+            long milliSeconds = 1000 * 60 * 120;
+            conf.setLong("mapred.task.timeout", milliSeconds);
+
+            FileSystem fs = FileSystem.get(conf);
+
             Job job = Job.getInstance(conf, "frequent item SON:" + i);
             job.setJarByClass(Main.class);
             job.setMapperClass(Map.class);
@@ -52,7 +56,7 @@ public class Main3 {
             job.setOutputKeyClass(Text.class);
             job.setOutputValueClass(DoubleWritable.class);
 
-            job.setNumReduceTasks(1);
+            job.setNumReduceTasks(4);
             FileInputFormat.addInputPath(job, new Path(input));
 
             Path path = new Path(rootout + "/out" + i);
@@ -63,11 +67,11 @@ public class Main3 {
             if (!job.waitForCompletion(true)) {
                 break;
             }
-            DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + i + "/part-r-00000"), conf);
-//            DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + i + "/part-r-00001"), conf);
-//            DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + i + "/part-r-00002"), conf);
 
-            // input = rootout + "/out" + i;
+            DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + i + "/part-r-00000"), conf);
+            DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + i + "/part-r-00001"), conf);
+            DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + i + "/part-r-00002"), conf);
+            DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + i + "/part-r-00003"), conf);
         }
 
 //        local();
@@ -99,7 +103,7 @@ public class Main3 {
                     ap.setMinSup(p * minsup);
 
                     try (final BufferedWriter writer = Files.newBufferedWriter(Paths.get("output3" + finalI + ".csv"), StandardCharsets.UTF_8)) {
-                        TObjectDoubleHashMap<Itemset> result = ap.go();
+                        TObjectDoubleHashMap<Itemset> result = ap.go(null);
                         result.forEachEntry(new TObjectDoubleProcedure<Itemset>() {
                             @Override
                             public boolean execute(Itemset a, double b) {
@@ -167,17 +171,15 @@ public class Main3 {
             } else {
                 URI[] cacheFiles = DistributedCache.getCacheFiles(context.getConfiguration());
                 for (URI cacheFile : cacheFiles) {
-                    {
-                        Path path = new Path(cacheFile);
-                        FileSystem fs = FileSystem.get(context.getConfiguration());
-                        FSDataInputStream open = new FSDataInputStream(fs.open(path));
-                        BufferedReader d = new BufferedReader(new InputStreamReader(open));
-                        String line;
-                        while ((line = d.readLine()) != null) {
-                            candidateItems.add(new Itemset(line.split("\\s+")[0]));
-                        }
-                        d.close();
+                    Path path = new Path(cacheFile);
+                    FileSystem fs = FileSystem.get(context.getConfiguration());
+                    FSDataInputStream open = new FSDataInputStream(fs.open(path));
+                    BufferedReader d = new BufferedReader(new InputStreamReader(open));
+                    String line;
+                    while ((line = d.readLine()) != null) {
+                        candidateItems.add(new Itemset(line.split("\\s+")[0]));
                     }
+                    d.close();
                 }
             }
         }
@@ -203,11 +205,11 @@ public class Main3 {
             final Text rkey = new Text();
 
             if (context.getJobName().endsWith("1")) {
-                double p = (5.0 * apriori.getNumTransactions()) / tranSize;
+                double p = (20.0 * apriori.getNumTransactions()) / tranSize;
 
                 apriori.setMinSup(p * minsup);
 
-                TObjectDoubleHashMap<Itemset> localResult = apriori.go();
+                TObjectDoubleHashMap<Itemset> localResult = apriori.go(context);
 
                 Itemset[] keys = localResult.keys(new Itemset[0]);
 

@@ -2,10 +2,18 @@ package bigdata.team3;
 
 import gnu.trove.map.TObjectDoubleMap;
 import gnu.trove.map.hash.TObjectDoubleHashMap;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
 import org.eclipse.jdt.core.compiler.ITerminalSymbols;
 import org.omg.CORBA.OBJ_ADAPTER;
 
 import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 
 /**
@@ -63,8 +71,9 @@ public class Apriori extends Observable {
         resultset = new TObjectDoubleHashMap<>();
     }
 
-    public void addLine(String line) {
+    public void addLine(String line) throws IOException {
         stringBuilder.append(line).append("\n");
+//        Files.write(Paths.get("tmp.dsk"), (line + "\n").getBytes(), StandardOpenOption.APPEND, StandardOpenOption.CREATE);
         numTransactions++;
     }
 
@@ -78,8 +87,10 @@ public class Apriori extends Observable {
 
     /**
      * starts the algorithm after configuration
+     *
+     * @param context
      */
-    public TObjectDoubleHashMap<Itemset> go() throws IOException {
+    public TObjectDoubleHashMap<Itemset> go(Mapper<LongWritable, Text, Text, DoubleWritable>.Context context) throws IOException {
         configure();
         //start timer
         long start = System.currentTimeMillis();
@@ -90,14 +101,14 @@ public class Apriori extends Observable {
         int nbFrequentSets = 0;
 
         while (itemsets.size() > 0) {
-
-            calculateFrequentItemsets();
+            context.progress();
+            calculateFrequentItemsets(context);
 
             if (itemsets.size() != 0) {
                 nbFrequentSets += itemsets.size();
                 log("Found " + itemsets.size() + " frequent itemsets of size " + itemsetNumber + " (with support " + (minSup * 100) + "%)");
 
-                createNewItemsetsFromPreviousOnes();
+                createNewItemsetsFromPreviousOnes(context);
             }
 
             itemsetNumber++;
@@ -108,7 +119,7 @@ public class Apriori extends Observable {
         log("Execution time is: " + ((double) (end - start) / 1000) + " seconds.");
         log("Found " + nbFrequentSets + " frequents sets for support " + (minSup * 100) + "% (absolute " + Math.round(numTransactions * minSup) + ")");
         log("Done");
-
+//        Files.delete(Paths.get("tmp.dsk"));
         return resultset;
     }
 
@@ -116,7 +127,7 @@ public class Apriori extends Observable {
      * outputs a message in Sys.err if not used as library
      */
     private void log(String message) {
-        System.err.println(message);
+        System.out.println(message);
     }
 
     private void configure() throws IOException {
@@ -128,12 +139,14 @@ public class Apriori extends Observable {
         numTransactions = 0;
         StringReader reader = new StringReader(stringBuilder.toString());
         BufferedReader data_in = new BufferedReader(reader);
+//        BufferedReader data_in = Files.newBufferedReader(Paths.get("tmp.dsk"), Charset.defaultCharset());
         String line;
         while ((line = data_in.readLine()) != null) {
             if (line.matches("\\s*")) continue; // be friendly with empty lines
             numTransactions++;
         }
         data_in.close();
+
     }
 
     /**
@@ -144,6 +157,7 @@ public class Apriori extends Observable {
         currentItemCount = 1;
         StringReader reader = new StringReader(stringBuilder.toString());
         BufferedReader data_in = new BufferedReader(reader);
+//        BufferedReader data_in = Files.newBufferedReader(Paths.get("tmp.dsk"), Charset.defaultCharset());
         String line;
         while ((line = data_in.readLine()) != null) {
             if (line.matches("\\s*")) continue;
@@ -164,8 +178,10 @@ public class Apriori extends Observable {
      * if n is the size of the current itemsets,
      * generate all possible itemsets of size n+1 from pairs of current itemsets
      * replaces the itemsets of itemsets by the new ones
+     *
+     * @param context
      */
-    private void createNewItemsetsFromPreviousOnes() {
+    private void createNewItemsetsFromPreviousOnes(Mapper<LongWritable, Text, Text, DoubleWritable>.Context context) {
 
         int currentSizeOfItemsets = currentItemCount;
         log("Creating itemsets of size " + (currentSizeOfItemsets + 1) + " based on " + itemsets.size() + " itemsets of size " + currentSizeOfItemsets);
@@ -175,7 +191,7 @@ public class Apriori extends Observable {
         // compare each pair of itemsets of size n-1
         for (int i = 0; i < items.length; i++) {
             int[] X = items[i].getItems();
-
+            context.setStatus("status:" + System.currentTimeMillis());
             for (int j = i + 1; j < items.length; j++) {
                 int[] Y = items[j].getItems();
 
@@ -214,8 +230,8 @@ public class Apriori extends Observable {
             }
         }
 
-        for (Object item : items) {
-            if (((Itemset) item).getItems().length == currentItemCount) {
+        for (Itemset item : items) {
+            if (item.getItems().length == currentItemCount) {
                 itemsets.remove(item);
             }
         }
@@ -232,13 +248,15 @@ public class Apriori extends Observable {
     /**
      * passes through the data to measure the frequency of sets in {@link },
      * then filters thoses who are under the minimum support (minSup)
+     *
+     * @param context
      */
-    private void calculateFrequentItemsets() throws IOException {
+    private void calculateFrequentItemsets(Mapper<LongWritable, Text, Text, DoubleWritable>.Context context) throws IOException {
 
 
         StringReader reader = new StringReader(stringBuilder.toString());
-        // load the transaction file
         BufferedReader data_in = new BufferedReader(reader);
+//        BufferedReader data_in = Files.newBufferedReader(Paths.get("tmp.dsk"), Charset.defaultCharset());
 
         Itemset[] items = itemsets.keys(new Itemset[0]);
 
@@ -256,6 +274,8 @@ public class Apriori extends Observable {
                     if (trans.contains(item)) {
                         itemsets.increment(items[c]);
                     }
+
+                    context.setStatus("status:" + System.currentTimeMillis());
                 }
 
             }
