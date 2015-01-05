@@ -32,51 +32,51 @@ public class Main2 {
     volatile static double tranSize = 990002.0;
 
     public static void main(String[] args) throws Exception {
-//        final String input = args[0];
-//        String rootout = args[1];
-//        tranSize = Double.parseDouble(args[2]);
-//        final String NAME_NODE = "hdfs://SrvT2C2Master:8020";
+        final String input = args[0];
+        String rootout = args[1];
+        tranSize = Double.parseDouble(args[2]);
+        final String NAME_NODE = "hdfs://SrvT2C2Master:8020";
 
-//        for (int i = 1; i < 6; i++) {
-//            Configuration conf = new Configuration();
-//            FileSystem fs = FileSystem.get(conf);
-//
-//            if (i > 1) {
-//                DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + (i - 1)+"/part-r-00000"), conf);
-//
-//            }
-//
-//            Job job = Job.getInstance(conf, "frequent itemset k-phase :" + i);
-//            job.setJarByClass(Main2.class);
-//            job.setMapperClass(Map.class);
-//
-//            job.setReducerClass(Reduce.class);
-//            job.setOutputKeyClass(Text.class);
-//            job.setOutputValueClass(DoubleWritable.class);
-//            job.setNumReduceTasks(1);
-//
-//
-//            FileInputFormat.addInputPath(job, new Path(input));
-//
-//            Path path = new Path(rootout + "/out" + i);
-//            fs.delete(path, true);
-//
-//            FileOutputFormat.setOutputPath(job, path);
-//
-//            if (!job.waitForCompletion(true)) {
-//                break;
-//            }
-//        }
+        for (int i = 1; i < 6; i++) {
+            Configuration conf = new Configuration();
+            FileSystem fs = FileSystem.get(conf);
+
+            if (i > 1) {
+                DistributedCache.addCacheFile(new URI(NAME_NODE + rootout + "/out" + (i - 1) + "/part-r-00000"), conf);
+
+            }
+
+            Job job = Job.getInstance(conf, "frequent itemset k-phase :" + i);
+            job.setJarByClass(Main2.class);
+            job.setMapperClass(Map.class);
+
+            job.setReducerClass(Reduce.class);
+            job.setOutputKeyClass(Text.class);
+            job.setOutputValueClass(DoubleWritable.class);
+            job.setNumReduceTasks(1);
 
 
-        TObjectDoubleHashMap<Itemset> itemset = new TObjectDoubleHashMap<>();
+            FileInputFormat.addInputPath(job, new Path(input));
 
-        List<String> lines = Files.readAllLines(Paths.get("C:\\Users\\F\\Dropbox\\class\\big data\\Project\\code\\out\\part-r-00000"), StandardCharsets.UTF_8);
-        for (String line : lines) {
-            itemset.put(new Itemset(line.split("\\s+")[0].trim()), 0);
+            Path path = new Path(rootout + "/out" + i);
+            fs.delete(path, true);
+
+            FileOutputFormat.setOutputPath(job, path);
+
+            if (!job.waitForCompletion(true)) {
+                break;
+            }
         }
 
-        generateCandidates(itemset, 1);
+
+//        TObjectDoubleHashMap<Itemset> itemset = new TObjectDoubleHashMap<>();
+//
+//        List<String> lines = Files.readAllLines(Paths.get("C:\\Users\\F\\Dropbox\\class\\big data\\Project\\code\\out\\part-r-00000"), StandardCharsets.UTF_8);
+//        for (String line : lines) {
+//            itemset.put(new Itemset(line.split("\\s+")[0].trim()), 0);
+//        }
+//
+//        generateCandidates(itemset, 1);
 
     }
 
