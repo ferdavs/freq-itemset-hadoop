@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 public class Main3 {
 
-    static double tranSize = 1692082;
+    static double tranSize = 990002.0;
 
     public static void main(String[] args) throws Exception {
 
@@ -51,7 +51,6 @@ public class Main3 {
             Job job = Job.getInstance(conf, "frequent item SON:" + i);
             job.setJarByClass(Main.class);
             job.setMapperClass(Map.class);
-//        job.setCombinerClass(Reduce.class);
             job.setReducerClass(Reduce.class);
             job.setOutputKeyClass(Text.class);
             job.setOutputValueClass(DoubleWritable.class);
@@ -104,7 +103,7 @@ public class Main3 {
                     ap.setMinSup(p * minsup);
 
                     try (final BufferedWriter writer = Files.newBufferedWriter(Paths.get("output3" + finalI + ".csv"), StandardCharsets.UTF_8)) {
-                        TObjectDoubleHashMap<Itemset> result = ap.go(null);
+                        TObjectDoubleHashMap<Itemset> result = ap.go();
                         result.forEachEntry(new TObjectDoubleProcedure<Itemset>() {
                             @Override
                             public boolean execute(Itemset a, double b) {
@@ -206,11 +205,11 @@ public class Main3 {
             final Text rkey = new Text();
 
             if (context.getJobName().endsWith("1")) {
-                double p = (20.0 * apriori.getNumTransactions()) / tranSize;
+                double p = (5.0 * apriori.getNumTransactions()) / tranSize;
 
                 apriori.setMinSup(p * minsup);
 
-                TObjectDoubleHashMap<Itemset> localResult = apriori.go(context);
+                TObjectDoubleHashMap<Itemset> localResult = apriori.go();
 
                 Itemset[] keys = localResult.keys(new Itemset[0]);
 

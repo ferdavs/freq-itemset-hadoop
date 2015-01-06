@@ -88,9 +88,8 @@ public class Apriori extends Observable {
     /**
      * starts the algorithm after configuration
      *
-     * @param context
      */
-    public TObjectDoubleHashMap<Itemset> go(Mapper<LongWritable, Text, Text, DoubleWritable>.Context context) throws IOException {
+    public TObjectDoubleHashMap<Itemset> go() throws IOException {
         configure();
         //start timer
         long start = System.currentTimeMillis();
@@ -101,14 +100,14 @@ public class Apriori extends Observable {
         int nbFrequentSets = 0;
 
         while (itemsets.size() > 0) {
-            context.progress();
-            calculateFrequentItemsets(context);
+//            context.progress();
+            calculateFrequentItemsets();
 
             if (itemsets.size() != 0) {
                 nbFrequentSets += itemsets.size();
                 log("Found " + itemsets.size() + " frequent itemsets of size " + itemsetNumber + " (with support " + (minSup * 100) + "%)");
 
-                createNewItemsetsFromPreviousOnes(context);
+                createNewItemsetsFromPreviousOnes();
             }
 
             itemsetNumber++;
@@ -122,6 +121,7 @@ public class Apriori extends Observable {
 //        Files.delete(Paths.get("tmp.dsk"));
         return resultset;
     }
+
 
     /**
      * outputs a message in Sys.err if not used as library
@@ -179,9 +179,8 @@ public class Apriori extends Observable {
      * generate all possible itemsets of size n+1 from pairs of current itemsets
      * replaces the itemsets of itemsets by the new ones
      *
-     * @param context
      */
-    private void createNewItemsetsFromPreviousOnes(Mapper<LongWritable, Text, Text, DoubleWritable>.Context context) {
+    private void createNewItemsetsFromPreviousOnes() {
 
         int currentSizeOfItemsets = currentItemCount;
         log("Creating itemsets of size " + (currentSizeOfItemsets + 1) + " based on " + itemsets.size() + " itemsets of size " + currentSizeOfItemsets);
@@ -191,7 +190,7 @@ public class Apriori extends Observable {
         // compare each pair of itemsets of size n-1
         for (int i = 0; i < items.length; i++) {
             int[] X = items[i].getItems();
-            context.setStatus("status:" + System.currentTimeMillis());
+//            context.setStatus("status:" + System.currentTimeMillis());
             for (int j = i + 1; j < items.length; j++) {
                 int[] Y = items[j].getItems();
 
@@ -249,9 +248,8 @@ public class Apriori extends Observable {
      * passes through the data to measure the frequency of sets in {@link },
      * then filters thoses who are under the minimum support (minSup)
      *
-     * @param context
      */
-    private void calculateFrequentItemsets(Mapper<LongWritable, Text, Text, DoubleWritable>.Context context) throws IOException {
+    private void calculateFrequentItemsets() throws IOException {
 
         StringReader reader = new StringReader(stringBuilder.toString());
         BufferedReader data_in = new BufferedReader(reader);
@@ -273,7 +271,7 @@ public class Apriori extends Observable {
                         itemsets.increment(item);
                     }
 
-                    context.setStatus("status:" + System.currentTimeMillis());
+//                    context.setStatus("status:" + System.currentTimeMillis());
                 }
 
             }
