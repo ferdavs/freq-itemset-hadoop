@@ -253,7 +253,6 @@ public class Apriori extends Observable {
      */
     private void calculateFrequentItemsets(Mapper<LongWritable, Text, Text, DoubleWritable>.Context context) throws IOException {
 
-
         StringReader reader = new StringReader(stringBuilder.toString());
         BufferedReader data_in = new BufferedReader(reader);
 //        BufferedReader data_in = Files.newBufferedReader(Paths.get("tmp.dsk"), Charset.defaultCharset());
@@ -269,10 +268,9 @@ public class Apriori extends Observable {
 
 
                 // check each candidate
-                for (int c = 0; c < items.length; c++) {
-                    Itemset item = items[c];
+                for (Itemset item : items) {
                     if (trans.contains(item)) {
-                        itemsets.increment(items[c]);
+                        itemsets.increment(item);
                     }
 
                     context.setStatus("status:" + System.currentTimeMillis());
@@ -282,12 +280,12 @@ public class Apriori extends Observable {
 
         data_in.close();
 
-        for (int i = 0; i < items.length; i++) {
-            double sup = (itemsets.get(items[i]) / (double) (numTransactions));
+        for (Itemset item : items) {
+            double sup = (itemsets.get(item) / (double) (numTransactions));
             if (sup < minSup) {
-                itemsets.remove(items[i]);
+                itemsets.remove(item);
             } else
-                itemsets.put(items[i], sup);
+                itemsets.put(item, sup);
         }
 
         resultset.putAll(itemsets);

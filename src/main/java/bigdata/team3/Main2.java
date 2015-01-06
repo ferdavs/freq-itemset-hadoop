@@ -28,8 +28,7 @@ import java.util.*;
 
 public class Main2 {
 
-    final static DoubleWritable one = new DoubleWritable(1);
-    volatile static double tranSize = 990002.0;
+    volatile static double tranSize = 0;
 
     public static void main(String[] args) throws Exception {
         final String input = args[0];
@@ -84,7 +83,6 @@ public class Main2 {
     private static void generateCandidates(TObjectDoubleHashMap<Itemset> itemsets, int currentItemCount) {
 
         Itemset[] items = itemsets.keys(new Itemset[0]);
-
         // compare each pair of itemsets of size n-1
         for (int i = 0; i < items.length; i++) {
             int[] X = items[i].getItems();
@@ -132,43 +130,61 @@ public class Main2 {
                 itemsets.remove(item);
             }
         }
-//            currentItemCount++;
     }
 
     public static class Map extends Mapper<LongWritable, Text, Text, DoubleWritable> {
 
+        //        List<Itemset> baskets = new ArrayList<>();
+        final DoubleWritable one = new DoubleWritable(1);
         Text item = new Text();
-        TObjectDoubleHashMap<Itemset> trans = new TObjectDoubleHashMap<>();
-        TObjectDoubleHashMap<Itemset> itemset = new TObjectDoubleHashMap<>();
+        Itemset[] candidates;
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
             super.setup(context);
-            int iter = Integer.parseInt(context.getJobName().split(":")[1]);
-            if (iter > 1) {
+            int k = Integer.parseInt(context.getJobName().split(":")[1]);
+            if (k > 1) {
                 URI[] cacheFiles = DistributedCache.getCacheFiles(context.getConfiguration());
+                TObjectDoubleHashMap<Itemset> itemset = new TObjectDoubleHashMap<>();
+
                 for (URI cacheFile : cacheFiles) {
-                    {
-                        Path p = new Path(cacheFile);
-                        FileSystem fs = FileSystem.get(context.getConfiguration());
-                        FSDataInputStream open = new FSDataInputStream(fs.open(p));
-                        BufferedReader d = new BufferedReader(new InputStreamReader(open));
-                        String line;
-                        while ((line = d.readLine()) != null) {
-                            itemset.put(new Itemset(line.split("\\s+")[0].trim()), 0);
-                        }
-                        d.close();
+                    Path p = new Path(cacheFile);
+                    FileSystem fs = FileSystem.get(context.getConfiguration());
+                    FSDataInputStream open = new FSDataInputStream(fs.open(p));
+                    BufferedReader d = new BufferedReader(new InputStreamReader(open));
+                    String line;
+                    while ((line = d.readLine()) != null) {
+                        itemset.put(new Itemset(line.split("\\s+")[0].trim()), 0);
                     }
+                    d.close();
                 }
+                generateCandidates(itemset, k - 1);
+                candidates = itemset.keys(new Itemset[0]);
             }
         }
 
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            int iter = Integer.parseInt(context.getJobName().split(":")[1]);
-            if (iter > 1) {
+            int k = Integer.parseInt(context.getJobName().split(":")[1]);
+            if (k > 1) {
                 String line = value.toString();
                 String[] split = line.split("\\s+");
-                trans.put(new Itemset(split[0].trim()), 0);
+                Itemset basket = new Itemset(split[0].trim());
+//                baskets.add(basket);
+                for (Itemset c : candidates) {
+//                    for (Itemset basket : baskets)
+                    {
+                        if (basket.contains(c)) {
+                            c.increment();
+                        }
+                    }
+                }
+
+                for (Itemset c : candidates) {
+                    item.set(c.toString());
+//                    one.set(c.getCount());
+                    context.write(item, new DoubleWritable(c.getCount()));
+                }
+
             } else {
                 String line = value.toString();
                 String[] split = line.split("\\s+");
@@ -181,39 +197,20 @@ public class Main2 {
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
-//            int k = context.getConfiguration().getInt("phaseCounter", 1);
             int k = Integer.parseInt(context.getJobName().split(":")[1]);
             if (k > 1) {
-                Itemset[] keys = trans.keys(new Itemset[0]);
 
-                generateCandidates(itemset, k - 1);
 
-                Itemset[] candidates = itemset.keys(new Itemset[0]);
-
-                for (Itemset c : candidates) {
-                    for (Itemset basket : keys) {
-                        if (basket.contains(c)) {
-                            c.increment();
-                        }
-                    }
-                }
-
-                for (Itemset c : candidates) {
-                    item.set(c.toString());
-                    one.set(c.getCount());
-                    context.write(item, one);
-                }
             }
             super.cleanup(context);
         }
-
     }
 
     public static class Reduce extends Reducer<Text, DoubleWritable, Text, DoubleWritable> {
 
         public void reduce(Text key, Iterable<DoubleWritable> values, Context context) throws IOException, InterruptedException {
             final double numtran = 1.0 / 990002.0;
-            final double minsup = 0.005;
+            final double minsup = 0.01;
             double sum = 0.0;
 
             for (DoubleWritable val : values) {

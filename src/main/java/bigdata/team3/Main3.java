@@ -57,6 +57,7 @@ public class Main3 {
             job.setOutputValueClass(DoubleWritable.class);
 
             job.setNumReduceTasks(4);
+
             FileInputFormat.addInputPath(job, new Path(input));
 
             Path path = new Path(rootout + "/out" + i);

@@ -25,15 +25,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
 
-    static int setsize = 5;
-    static double tranSize = 1;
+    static int setsize = 4;
+    static double tranSize = 0;
 
     public static void main(String[] args) throws Exception {
         tranSize = Double.parseDouble(args[2]);
 
         Configuration conf = new Configuration();
+        long milliSeconds = 1000 * 60 * 120;
+        conf.setLong("mapred.task.timeout", milliSeconds);
 
-        Job job = Job.getInstance(conf, "frequent item 5");
+        Job job = Job.getInstance(conf, "frequent item 4");
         job.setJarByClass(Main.class);
         job.setMapperClass(Map.class);
 //        job.setCombinerClass(Reduce.class);
@@ -176,7 +178,7 @@ public class Main {
 
         public void reduce(Text key, Iterable<DoubleWritable> values, Context context) throws IOException, InterruptedException {
 
-            final double numtran = 1.0 / tranSize;
+            final double numtran = 1.0 / 990002.0;
             final double minsup = 0.01;
             double sum = 0;
             for (DoubleWritable val : values) {
